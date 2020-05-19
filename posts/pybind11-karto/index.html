@@ -1,0 +1,118 @@
+<!doctype html><html lang=en><head><title>A Pybind11 Intro based on my Experience Wrapping OpenKarto :: Jariullah Safi&#39;s ... place — A Jack of Some trades</title><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1"><meta name=description content="In this post I break down in detail the various challenges of wrapping a C&#43;&#43; library in python using pybind11 (you can find the result pyOpenKarto here) to get a pleasant python interface. It contains examples of how to do various things which I had to dig through the documentation to find, so I&amp;rsquo;m hoping it can help out a weary traveler or two. Note that this is focusing solely on Linux (specifically Ubuntu but that only affects package names)."><meta name=keywords content><meta name=robots content="noodp"><link rel=canonical href=/posts/pybind11-karto/><link rel=stylesheet href=/assets/style.css><link rel=apple-touch-icon-precomposed sizes=144x144 href=/img/apple-touch-icon-144-precomposed.png><link rel="shortcut icon" href=/img/favicon/orange.png><meta name=twitter:card content="summary"><meta name=twitter:site content><meta name=twitter:creator content><meta property="og:locale" content="en"><meta property="og:type" content="article"><meta property="og:title" content="A Pybind11 Intro based on my Experience Wrapping OpenKarto :: Jariullah Safi's ... place"><meta property="og:description" content="In this post I break down in detail the various challenges of wrapping a C&#43;&#43; library in python using pybind11 (you can find the result pyOpenKarto here) to get a pleasant python interface. It contains examples of how to do various things which I had to dig through the documentation to find, so I&amp;rsquo;m hoping it can help out a weary traveler or two. Note that this is focusing solely on Linux (specifically Ubuntu but that only affects package names)."><meta property="og:url" content="/posts/pybind11-karto/"><meta property="og:site_name" content="A Pybind11 Intro based on my Experience Wrapping OpenKarto"><meta property="og:image" content="/img/favicon/orange.png"><meta property="og:image:width" content="2048"><meta property="og:image:height" content="1024"></head><body><div class="container headings--one-size"><header class=header><div class=header__inner><div class=header__logo><a href=/><div class=logo>Jariullah Safi (Jack of Some)</div></a></div><div class=menu-trigger>menu</div></div><nav class=menu><ul class="menu__inner menu__inner--desktop"><li><a href=/about>About</a></li><li><a href=/posts>Posts</a></li><li><a href=/videos>Videos</a></li></ul><ul class="menu__inner menu__inner--mobile"><li><a href=/about>About</a></li><li><a href=/posts>Posts</a></li><li><a href=/videos>Videos</a></li></ul></nav></header><div class=content><div class=post><h1 class=post-title><a href=/posts/pybind11-karto/>A Pybind11 Intro based on my Experience Wrapping OpenKarto</a></h1><div class=post-meta></div><div class=post-content><div><p>In this post I break down in detail the various challenges of wrapping a <code>C++</code> library in <code>python</code> using
+<code>pybind11</code> (you can find the result <strong>pyOpenKarto</strong> <a href=https://github.com/safijari/pyOpenKarto>here</a>) to get a pleasant python interface. It contains examples of how to do various things which
+I had to dig through the documentation to find, so I&rsquo;m hoping it can help out a weary traveler or two. Note that this is focusing solely on Linux (specifically Ubuntu but that only affects package names).</p><h2 id=some-background-on-openkarto>Some background on OpenKarto<a href=#some-background-on-openkarto class=hanchor arialabel=Anchor>&#8983;</a></h2><p>As the <em>about</em> portion of this website shows, I&rsquo;m at least part roboticist despite most of my
+time at <a href=http://www.simberobotics.com>Simbe Robotics</a> being spent on computer vision and machine learning. As such I&rsquo;ve had a few tussles with
+algorithms to map an environment using laser scanner data. Most recently I encountered
+(and quite enjoyed working with) <a href=https://github.com/ros-perception/open_karto><code>OpenKarto</code></a> which
+was originally developed at SRI and currently maintained by <a href=https://www.openrobotics.org/>OSRF</a>.</p><h2 id=the-need-for-a-python-wrapper-and-a-solution>The need for a python wrapper and a solution<a href=#the-need-for-a-python-wrapper-and-a-solution class=hanchor arialabel=Anchor>&#8983;</a></h2><p>In addition to using this library onboard the robot, I realized we could make use of it to post
+process some logged laser scans and improve the overall accuracy of our data pipeline. It is here that I hit a small snag: our data pipeline is written in <code>python</code>. Now, this isn&rsquo;t <em>technically</em> an issue, what with</p><ol><li><code>python</code> being designed with <a href=https://docs.python.org/2/extending/extending.html>C/C++ extensions</a> in mind,</li><li><code>cython</code> allowing you to <a href=https://cython.readthedocs.io/en/latest/src/userguide/wrapping_CPlusPlus.html>call C++ functions</a>,</li><li><code>Boost.Python</code> allowing what always appears to be a <a href=https://www.boost.org/doc/libs/1_68_0/libs/python/doc/html/index.html>simple way to interface</a> <code>python</code> with <code>C++</code> (if you can get it to work&hellip;)</li><li>and <code>pybind11</code> allowing for a very <code>Boost.Python</code> like interface but no <code>boost</code> requirement &hellip; also it&rsquo;s header only!!!</li></ol><p>Number 4 was brand new to me. I had tried (and mostly struck out, repeatedly) with all the other options. So I gave it a try. I started with the excellent <a href=https://github.com/pybind/python_example>python example</a> since that allows me to build/deploy with the <code>setup.py</code> file.</p><h2 id=dealing-with-external-dependencies>Dealing with external dependencies<a href=#dealing-with-external-dependencies class=hanchor arialabel=Anchor>&#8983;</a></h2><p>This is the first thing I needed to do a bit of digging to find as the example does not tackle it.
+Building OpenKarto needs at least <code>libeigen3-dev</code> and <code>libboost-thread-dev</code> to function correctly (darn,
+I couldn&rsquo;t avoid boost entirely). The former is header only, the latter is dynamically linked. Note that this means that <code>libboost-thread</code> must be present on the target system unless you release a pre-packaged python wheel using AuditWheel (which I will explain in a future post).</p><p>All of this needs to be specified in the <code>Extension</code> module for my library as shown here:</p><pre><code class=language-python>ext_modules = [
+    Extension(
+        'openkarto',      # python module name
+        ['src/PythonInterface.cpp', 
+        'src/Mapper.cpp', 
+        'src/Karto.cpp'], # All the cpp files that need to be built
+        include_dirs=[
+            'include',    # OpenKarto's necessary .h files
+            '/usr/include/eigen3/', # Eigen 3's headers
+            get_pybind_include(),
+            get_pybind_include(user=True)
+        ],
+        libraries=['boost_thread'], # Tell the compiler to find libboost_thread
+        library_dirs=['/usr/lib/'], # Unnecessary in this specific case
+        language='c++'
+    ),
+]
+</code></pre><p>As you can see the overall changes are minimal and pretty straight forward. Note that for most correctly
+installed libraries on linux (<code>libboost-thread</code> included) you should not need to specify a library dir
+as that is already searched.</p><h2 id=the-interface-file>The interface file<a href=#the-interface-file class=hanchor arialabel=Anchor>&#8983;</a></h2><p>This file, that I called <a href=https://github.com/safijari/pyOpenKarto/blob/python-devel/src/PythonInterface.cpp><code>PythonInterface.cpp</code></a>, is the only addition I needed to make (other than the <code>setup.py</code>)
+to the base <code>open_karto</code> repo. To allow for more overall control, I abstracted the details of using
+the karto api into a <code>MapperWrapper</code> class which takes care of things like setup and teardown
+as well as reduce some general tedium. To expose this class, I needed to add the following code:</p><pre><code class=language-python>#include &lt;pybind11/pybind11.h&gt;
+#include &lt;pybind11/stl.h&gt;
+
+PYBIND11_MODULE(openkarto, m) {
+  py::class_&lt;MapperWrapper&gt;(m, &quot;MapperWrapper&quot;)
+    .def(py::init&lt;std::string, double, double, double&gt;())
+    .def(&quot;reset&quot;, &amp;MapperWrapper::Reset)
+    .def(&quot;process_scan&quot;, &amp;MapperWrapper::ProcessLocalizedRangeScan)
+    .def(&quot;get_processed_scans&quot;, &amp;MapperWrapper::GetProcessedScans, py::return_value_policy::reference)
+    .def(&quot;create_occupancy_grid&quot;, &amp;MapperWrapper::CreateOccupancyGrid)
+    .def_property_readonly(&quot;name&quot;, &amp;MapperWrapper::getName)
+    .def_property_readonly(&quot;range_finder&quot;, &amp;MapperWrapper::getRangeFinder)
+    .def_property_readonly(&quot;mapper&quot;, &amp;MapperWrapper::getMapper, py::return_value_policy::reference);
+
+  m.def(&quot;create_custom_rangefinder&quot;, &amp;CreateCustomRangeFinder);
+}
+</code></pre><p>Note that this was followed by more code I&rsquo;m not showing here which allows some members of this class to be accessed.
+The very first line defines the module itself. <code>openkarto</code> is the name of the
+exported module and <code>m</code> is a variable that we can use to modify the module and add
+functions and classes to it.</p><h3 id=exposing-a-class>Exposing a class<a href=#exposing-a-class class=hanchor arialabel=Anchor>&#8983;</a></h3><p>To expose a <code>C++</code> class, you need at least a minimum of</p><pre><code class=language-c++>py::class_&lt;ClassName&gt;(moduleObject, &quot;ClassNameInPython&quot;);
+</code></pre><p>In the above example the template argument to <code>py::class_</code> is <code>MapperWrapper</code>, the
+class I want to export. Note that I&rsquo;m choosing to call it by the same name in python though
+that certainly can be different.</p><p>This by itself wouldn&rsquo;t be very useful without exposed fields/functions/properties/etc.
+To do this, you can chain methods at the end of that statement. Perhaps the first method
+we need to add would be an <code>init</code> so we can create this class on the python side.</p><h3 id=constructors-initializers>Constructors/Initializers<a href=#constructors-initializers class=hanchor arialabel=Anchor>&#8983;</a></h3><p>Just chain the following to your class defintions:</p><pre><code class=language-c++>.def(py::init&lt;arg1_type, arg2_type, ...&gt;())
+</code></pre><p>where the template arguments can number in 0, as the case may be. Note that this exposes the
+<code>C++</code> class&rsquo;s constructor. In some cases you might want to expose a factory method instead.
+This is also very straight forward and the example below from another class in karto should make
+it clear:</p><pre><code class=language-c++>py::class_&lt;karto::LaserRangeFinder&gt;(m, &quot;LaserRangeFinder&quot;)
+  .def(py::init(&amp;karto::LaserRangeFinder::CreateLaserRangeFinder));
+</code></pre><p>Note that it&rsquo;s perfectly fine (as you&rsquo;ll soon see) to expose a class <em>without</em> an initializer
+if the class is never intended to be instantiated on the <code>python</code> side. The <code>OccupancyGrid</code> class
+in <code>karto</code> is always created on the <code>C++</code> side so it has no initializer.</p><h3 id=normal-methods>Normal methods<a href=#normal-methods class=hanchor arialabel=Anchor>&#8983;</a></h3><p>Exposing a normal method of the class is perhaps most straight forward:</p><pre><code class=language-c++>  .def(&quot;python_func_name&quot;, &amp;ClassName::MethodName);
+</code></pre><p>Note that there is no need to define arguments/their types as well as return types.
+<code>pybind11</code> will automatically take care of this. Note however that a returned <code>C++</code> type
+<strong>must</strong> be:</p><ol><li>translatable to python (true for most primitive types and stl containers) or</li><li>a python type constructed on the <code>C++</code> side (e.g. <code>py::make_tuple(1234, &quot;hello&quot;);</code>) or</li><li>exposed to python.</li></ol><p>If one of these three conditions is not met, trying to access the returned value in <code>python</code>
+will throw a runtime exception about the type not being known.</p><p>Note that in some cases you might need to mess with the <code>return_value_policy</code> (more info <a href=https://pybind11.readthedocs.io/en/stable/advanced/functions.html>here</a>). This is a topic I don&rsquo;t fully
+understand but at least in one case I needed to ensure that the python side does not take ownership of the object so I could avoid some double deletes, and this was done by setting the return policy
+to <code>reference</code>.</p><pre><code class=language-c++>.def(&quot;get_processed_scans&quot;, &amp;MapperWrapper::GetProcessedScans, 
+   py::return_value_policy::reference)
+</code></pre><h3 id=properties-and-public-fields>Properties and public fields<a href=#properties-and-public-fields class=hanchor arialabel=Anchor>&#8983;</a></h3><p>Now we get to one of my favorite things, mapping getters and setters to properties. There are
+two ways to do this and the distinction is obvious.</p><pre><code class=language-c++>.def_property(&quot;property_name&quot;, &amp;ClassName::Getter, &amp;ClassName::Setter)
+</code></pre><p>or</p><pre><code class=language-c++>.def_property_readonly(&quot;property_name&quot;, &amp;ClassName::Getter)
+</code></pre><p>Note that pybind11 has support for C++ lambdas in case you&rsquo;re wanting to expose a field
+that doesn&rsquo;t already have a getter/setter, you can do something like this:</p><pre><code class=language-c++>.def_property_readonly(&quot;property_name&quot;, [](const ClassName &amp;a) {
+    return a.field;
+})
+</code></pre><p>This can be done in all the presented cases, not just for properties. Finally, you can
+expose a public field directly if you choose to</p><pre><code class=language-c++>.def_readwrite(&quot;python_field_name&quot;, &amp;ClassName::fieldName)
+</code></pre><h3 id=printing-the-object-on-the-python-side>Printing the object on the python side<a href=#printing-the-object-on-the-python-side class=hanchor arialabel=Anchor>&#8983;</a></h3><p>There are few things in <code>python</code> land worse than</p><pre><code class=language-python>In [42]: print(obj)
+Out[42]: &lt;module.Confusion at 0x12345678AB&gt;
+</code></pre><p>Thankfully you can simpley define a <code>__repr__</code> for your class on the <code>C++</code> side same
+as you would have on the <code>python</code> side. In karto&rsquo;s case,
+it was important to be able to print out the data in the 2D pose class so I could keep my sanity.
+Note that we are returning a <code>C++</code> string which gets automatically translated to a python
+string.</p><pre><code class=language-c++>.def(&quot;__repr__&quot;, [](const karto::Pose2 &amp;a) {
+  std::stringstream buffer;
+  buffer &lt;&lt; &quot;(x: &quot; &lt;&lt; a.GetX() &lt;&lt; &quot;, y: &quot; &lt;&lt; a.GetY() &lt;&lt; &quot;, heading: &quot; &lt;&lt; a.GetHeading() &lt;&lt; &quot;)\n&quot;;
+  return buffer.str();
+})
+</code></pre><h3 id=normal-functions>Normal functions<a href=#normal-functions class=hanchor arialabel=Anchor>&#8983;</a></h3><p>This is the same as defining a method for the class except the <code>.def</code> is called on the module
+itself. As an example, I have a factory method for creating a concrete instance of a templated
+class, and I can expose it like so:</p><pre><code class=language-c++>m.def(&quot;create_custom_rangefinder&quot;, &amp;CreateCustomRangeFinder);
+</code></pre><h3 id=enums>Enums<a href=#enums class=hanchor arialabel=Anchor>&#8983;</a></h3><p>Karto defines the type of laser range finder used as well as states of each
+cell of a grid map as enums. To use these from the python side I needed to expose them
+like so:</p><pre><code class=language-c++>py::enum_&lt;karto::GridStates&gt;(m, &quot;GridStates&quot;)
+  .value(&quot;Unknown&quot;, karto::GridStates::GridStates_Unknown)
+  .value(&quot;Occupied&quot;, karto::GridStates::GridStates_Occupied)
+  .value(&quot;Free&quot;, karto::GridStates::GridStates_Free);
+</code></pre><p>The above maps <code>GridStates::GridStates_Unknown</code> to <code>GridStates.Unknown</code>
+on the python side.</p><h2 id=building-installing-and-packaging>Building, installing, and packaging<a href=#building-installing-and-packaging class=hanchor arialabel=Anchor>&#8983;</a></h2><p>You can build the package using the <code>setup.py</code> file</p><pre><code>python setup.py build
+</code></pre><p>which will create a new build directory and place one or more <code>.so</code> files inside it representing
+your module. To import the module, you can run python in that directory and then try to import
+the module name. If everything was build/linked correctly you should be able to import and use
+your shiny new module. This isn&rsquo;t a particularly good way to develop, however, and a better solution
+might be to install the pacakge in dev mode in your <code>python</code> environment. Do this using</p><pre><code>pip install -e .
+</code></pre><p>The additional <code>-e</code> does an &ldquo;editable&rdquo; install. All that means is that instead of your files
+getting copied somewhere in a <code>site-packages</code> directory, <code>pip</code> has made symlinks to them.
+This only has to be done once and afterwards the <code>build</code> command can be used to reflect any changes
+on the <code>C++</code> side. Note that you can omit the editable flag but that would cause a proper install
+of the package, and no changes will be reflected in your python environment until you do the install again.</p><p>Packaging is a bit more nuanced given this is not a pure python module. I&rsquo;ll only summarize it here and explain the best option at length in a future post. Other than simply leaving the code on github with some instructions to build from source, you have 4 options:</p><ol><li><p><code>python setup.py sdist</code>: Perhaps the worst option as it&rsquo;s basically the same as telling someone to build from source. It will take all your source code and <code>setup.py</code> file, and <code>tar</code> it up with your version number (and put it in the <code>dist</code> directory). Anyone installing it will need to have at least <code>pybind11</code> installed as well as the <code>devel</code> versions of any of your <code>C++</code> code&rsquo;s external dependencies (<code>libeigen3-dev</code> and <code>liboost-thread-dev</code> for <code>karto</code>).</p></li><li><p><code>python setup.py bdist_wheel</code>: This requires that you have the <code>wheel</code> package installed. It&rsquo;s a somewhat better option than the last one since no compilation will be required on the user&rsquo;s part. The command will create a <em>wheel</em> which is a <em>binary</em> <code>python</code> package (it&rsquo;s a zip file that is allowed to contain <code>.so</code> and other binary files). They will, however, need either the <code>dev</code> or <em>normal</em> (if any) version of your <code>C++</code> code&rsquo;s dependencies and version clashes are entirely possible. This option is perfect when your <code>C++</code> code has no external dependencies but that is typically not going to be the case.</p></li><li><p><a href=https://github.com/pypa/auditwheel><code>auditwheel</code></a>: This tool, sanctioned by the Python packaging authority, uses another nifty little tool called <a href=https://nixos.org/patchelf.html><code>patchelf</code></a> to find all the <code>.so</code> files that your module needs to be linked against and puts them inside an existing wheel (which you can make using the previous method). This is a much better option but depending on where you build the wheel and where you run the <code>auditwheel</code> command, it can have bad effects when deploying your package to a different platform (e.g. if I run <code>auditwheel</code> on Ubuntu 18.04 and then try to run the resulting package on 16.04, it straight up will refuse to import because of conflicting <code>glibc</code>).</p></li><li><p><code>auditwheel</code> + <a href=https://github.com/pypa/manylinux><code>manylinux</code></a>: <a href=https://www.python.org/dev/peps/pep-0513/>PEP 513</a> defines how to create maximally compatible and self contained python wheels, and <code>manylinux</code> is a build environment (they supply <code>docker</code> containers!). If you install all your dependencies in a <code>manylinux</code> <code>docker</code> container and then build and patch the wheel inside it, it will most likely run on any linux version from after 2007. This is much easier said than done, in fact it can be downright horrifying for some dependencies. I will spend another article describing this process for karto.</p></li></ol><h2 id=the-final-product-and-conclusion>The Final Product and Conclusion<a href=#the-final-product-and-conclusion class=hanchor arialabel=Anchor>&#8983;</a></h2><p>The original <code>open_karto</code> repo has a sample program that creates two circular laser scans processes
+them, below I show <code>python</code> code doing the same thing. Note that the <code>process_scan</code> method expects a <code>vector&lt;float&gt;</code>
+on the <code>C++</code> side but I can pass a normal <code>python</code> list. All the conversions are taken care of.</p><p><img src=/static/images/pyOpenkarto_example.png alt=example></p><p>All in all this was a great success for me. Not only does it allow me to easily integrate karto with my python codebase,
+it also allows me to finetune the parameters and experiment in a notebook, which is a huge boon to productivity.</p><p>I was pleasently surprised by how straight forward it was to get this all done with <code>pybind11</code>. It&rsquo;s a fantastic effort
+and I will be using it a lot more (I&rsquo;ve already wrapped two other codebases for work). I hope lessons learned during my
+journey proves helpful to you as well. Please use the disqus section below for any questions/comments.</p></div></div><script src=https://utteranc.es/client.js repo=safijari/safijari.github.io issue-term=og:title theme=photon-dark crossorigin=anonymous async></script></div></div><footer class=footer><div class=footer__inner><div class="copyright copyright--user"><span>Copyright Jariullah Safi 2020</span>
+<span>:: Theme made by <a href=https://twitter.com/panr>panr</a></span></div></div></footer><script src=/assets/main.js></script><script src=/assets/prism.js></script></div></body></html>
