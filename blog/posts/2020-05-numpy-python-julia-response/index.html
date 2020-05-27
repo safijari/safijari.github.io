@@ -1,0 +1,134 @@
+<!doctype html><html lang=en><head><title>A Response to &#34;Is Numpy Faster than Python?&#34; :: Jariullah Safi&#39;s ... place — A Jack of Some trades</title><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1"><meta name=description content="So I woke up this morning to my google feed recommending the article Is NumPy Faster than Python? and the first thought through my head was &amp;ldquo;uhhh &amp;hellip; why is that even a question?&amp;rdquo;. I later realized that this was a follow up to the author&amp;rsquo;s previous article called &amp;ldquo;Should You Jump Python&amp;rsquo;s Ship and Move to Julia?&amp;rdquo;.
+Upon more investigation it was clear that the author (whose name is Emmett) is a Julia evangelist with seemingly very little experience in Python."><meta name=keywords content><meta name=robots content="noodp"><link rel=canonical href=/blog/posts/2020-05-numpy-python-julia-response/><link rel=stylesheet href=/assets/style.css><link rel=apple-touch-icon-precomposed sizes=144x144 href=/img/apple-touch-icon-144-precomposed.png><link rel="shortcut icon" href=/img/favicon/orange.png><meta name=twitter:card content="summary"><meta name=twitter:site content><meta name=twitter:creator content><meta property="og:locale" content="en"><meta property="og:type" content="article"><meta property="og:title" content="A Response to &#34;Is Numpy Faster than Python?&#34; :: Jariullah Safi's ... place"><meta property="og:description" content="So I woke up this morning to my google feed recommending the article Is NumPy Faster than Python? and the first thought through my head was &amp;ldquo;uhhh &amp;hellip; why is that even a question?&amp;rdquo;. I later realized that this was a follow up to the author&amp;rsquo;s previous article called &amp;ldquo;Should You Jump Python&amp;rsquo;s Ship and Move to Julia?&amp;rdquo;.
+Upon more investigation it was clear that the author (whose name is Emmett) is a Julia evangelist with seemingly very little experience in Python."><meta property="og:url" content="/blog/posts/2020-05-numpy-python-julia-response/"><meta property="og:site_name" content="A Response to &#34;Is Numpy Faster than Python?&#34;"><meta property="og:image" content="/img/favicon/orange.png"><meta property="og:image:width" content="2048"><meta property="og:image:height" content="1024"><meta property="article:published_time" content="2020-05-27 09:39:00 -0700 -0700"></head><body><div class="container center headings--one-size"><header class=header><div class=header__inner><div class=header__logo><a href=/><div class=logo>Jariullah Safi (Jack of Some)</div></a></div><div class=menu-trigger>menu</div></div><nav class=menu><ul class="menu__inner menu__inner--desktop"><li><a href=/about>About</a></li><li><a href=/blog>Posts</a></li><li><a href=resume>Resume</a></li><li><a href=/tags/youtube>Videos</a></li></ul><ul class="menu__inner menu__inner--mobile"><li><a href=/about>About</a></li><li><a href=/blog>Posts</a></li><li><a href=resume>Resume</a></li><li><a href=/tags/youtube>Videos</a></li></ul></nav></header><div class=content><div class=post><h1 class=post-title><a href=/blog/posts/2020-05-numpy-python-julia-response/>A Response to &ldquo;Is Numpy Faster than Python?&rdquo;</a></h1><div class=post-meta><span class=post-date>2020-05-27</span></div><span class=post-tags>#<a href=/tags/python/>python</a>&nbsp;
+#<a href=/tags/numba/>numba</a>&nbsp;
+#<a href=/tags/numpy/>numpy</a>&nbsp;
+#<a href=/tags/julia/>julia</a>&nbsp;</span><div class=post-content><div><p>So I woke up this morning to my google feed recommending the article <a href=https://towardsdatascience.com/is-numpy-faster-than-python-e8a7363d8276>Is NumPy Faster than Python?</a>
+and the first thought through my head was &ldquo;uhhh &hellip; why is that even a question?&rdquo;. I later realized that
+this was a follow up to the author&rsquo;s previous article called <a href=https://towardsdatascience.com/should-you-jump-pythons-ship-and-move-to-julia-ccd32e7d25d9>&ldquo;Should You Jump Python&rsquo;s Ship and Move to Julia?&rdquo;</a>.</p><p>Upon more investigation it was clear that the author (whose name is Emmett) is a <code>Julia</code> evangelist with seemingly very little experience
+in <code>Python</code>. Now this is &hellip; fine. I have a great deal of respect for <code>Julia</code> and the community around it and the
+language has come a long way from when I first used it in grad school (as I noticed during my lengthy exploration
+of the language in a past video).</p><div style=position:relative;padding-bottom:56.25%;height:0;overflow:hidden><iframe src=https://www.youtube.com/embed/TNoShNPoEak style=position:absolute;top:0;left:0;width:100%;height:100%;border:0 allowfullscreen title="YouTube Video"></iframe></div><p>In face in the above video I did a comparison of how well a naive <code>Julia</code> implementation stacks up against a
+naive Numba implementation of the same simulation (they were about the same). I was then <a href=https://discourse.julialang.org/t/how-to-optimize-the-following-code/33209>schooled by</a> some
+folks much more knowledgable about <code>Julia</code> than I was after my 4 hours session with it and they demonstrated
+that with a bit of care <code>Julia</code> could become sufficiently faster than Numba. The fact that such a simple looking
+language could be made so performant says a lot about its potential and I&rsquo;m eagerly looking forward to what
+becomes of it.</p><p>But this post is not about <code>Julia</code>.</p><p>This post is more of a response to the &ldquo;Is Numpy Faster than Python&rdquo; question, but perhaps more importantly
+it serves as an assertion that <strong>&ldquo;Even if you wanted to, you likely cannot jump <code>Python</code>&rsquo;s ship just yet, so
+how about we talk about how to make the most of this unfortunately less than performant language?&rdquo;</strong></p><p>OK that&rsquo;s a bit of a mouthful, sorry about that. Let&rsquo;s get to it.</p><h2 id=the-base-code>The base code<a href=#the-base-code class=hanchor arialabel=Anchor>&#8983;</a></h2><p>What follows is code taken verbatim from the aforementioned article (formatting my own,
+I just ran <a href=https://pypi.org/project/black/>black</a> on it). First, the pure <code>Python</code> implementation which was compared with <code>Julia</code>:</p><pre><code class=language-python>def dot(x, y):
+    lst = []
+    for i, w in zip(x, y):
+        lst.append(i * w)
+    return lst
+
+
+def sq(x):
+    x = [c ** 2 for c in x]
+    return x
+
+
+class LinearRegression:
+    def __init__(self, x, y):
+        # a = ((∑y)(∑x^2)-(∑x)(∑xy)) / (n(∑x^2) - (∑x)^2)
+        # b = (x(∑xy) - (∑x)(∑y)) / n(∑x^2) - (∑x)^2
+        if len(x) != len(y):
+            pass
+        # Get our Summations:
+        Σx = sum(x)
+        Σy = sum(y)
+        # dot x and y
+        xy = dot(x, y)
+        # ∑dot x and y
+        Σxy = sum(xy)
+        # dotsquare x
+        x2 = sq(x)
+        # ∑ dotsquare x
+        Σx2 = sum(x2)
+        # n = sample size
+        n = len(x)
+        # Calculate a
+        self.a = (((Σy) * (Σx2)) - ((Σx * (Σxy)))) / ((n * (Σx2)) - (Σx ** 2))
+        # Calculate b
+        self.b = ((n * (Σxy)) - (Σx * Σy)) / ((n * (Σx2)) - (Σx ** 2))
+
+    def predict(self, xt):
+        xt = [self.a + (self.b * i) for i in xt]
+        return xt
+</code></pre><p>The code is meant to do <code>Linear Regression</code> and the API is kind of similar to what you might expect
+from <code>scikit-learn</code> (except the initializer takes the place of the <code>fit</code> function). If I came across this code
+in a review I would make the following remarks:</p><ul><li>The &ldquo;if not this then pass&rdquo; in the initializer is problematic. Kindly replace with an assert or, if you&rsquo;d prefer not to raise an exception, then let&rsquo;s talk more about your usecase and how you might redesign this.</li><li>Use <code>Numpy</code> arrays and ops rather than <code>Python</code> lists and ops.</li><li>There is already an implementation of this in <code>scikit-learn</code>, is there any reason why you can&rsquo;t use that (e.g. don&rsquo;t want to pull in a dependency)?</li></ul><p>Now Emmett <em>did</em> rewrite the code with <code>Numpy</code> (again, formatting my own and I have removed the comments):</p><pre><code class=language-python>import numpy as np
+
+
+class npLinearRegression:
+    def __init__(self, x, y):
+        if len(x) != len(y):
+            pass
+        Σx = sum(x)
+        Σy = sum(y)
+        xy = np.multiply(x, y)
+        Σxy = sum(xy)
+        x2 = np.square(x)
+        Σx2 = sum(x2)
+        n = len(x)
+        self.a = (((Σy) * (Σx2)) - ((Σx * (Σxy)))) / ((n * (Σx2)) - (Σx ** 2))
+        self.b = ((n * (Σxy)) - (Σx * Σy)) / ((n * (Σx2)) - (Σx ** 2))
+
+    def predict(self, xt):
+        xt = [self.a + (self.b * i) for i in xt]
+        return xt
+</code></pre><p>but it&rsquo;s a bit of an unfortunate implementation (and only gives about a 50% speedup over pure <code>Python</code> and is 5x or so slower than <code>Julia</code>). Let&rsquo;s
+pretend this is the update to the previous code that was submitted after my pretend review of the above code.
+My next review would likely be as follows:</p><ul><li>You appear to ultimately still be operating over <code>=Python=</code> lists and there&rsquo;s probably a lot of casting back and forth between <code>ndarray</code> and <code>List</code>.</li><li><code>np.multiply</code> and <code>np.square</code> aren&rsquo;t really needed (if <code>x</code> and <code>y</code> are passed as <code>numpy</code> arrays, that is).</li><li>The <code>predict</code> function is completely unchanged.</li></ul><p>At this point I might offer the reviewee to do some pair programming with me so I can demonstrate some of the updates
+this code can dearly benefit from. At the end of that review the code would likely look something like this:</p><pre><code class=language-python>import numpy as np
+class NpLinearRegression:
+    def __init__(self, x: np.ndarray, y: np.ndarray) -&gt; None:
+        assert len(x) == len(y), &quot;x and y arrays must have the same number of elements along the first axis&quot;
+        Σx = x.sum()
+        Σy = y.sum()
+        Σxy = (x*y).sum()
+        Σx2 = (x**2).sum()
+        n = len(x)
+
+        self.a = (((Σy) * (Σx2)) - ((Σx * (Σxy)))) / ((n * (Σx2)) - (Σx ** 2))
+        self.b = ((n * (Σxy)) - (Σx * Σy)) / ((n * (Σx2)) - (Σx ** 2))
+
+    def predict(self, xt: np.ndarray) -&gt; np.ndarray:
+        return self.a + (self.b * xt)
+</code></pre><p>At first blush this may look exactly the same as the last <code>numpy</code> implementation but it&rsquo;s subtly different.
+All arrays are now <code>np.ndarray</code> (as made clear to the reader and any linters/static checkers by the type hints).
+This not only makes the code smaller (<code>[self.a + self.b*i for i in xt]</code> vs <code>self.a + self.b*xt</code> but also makes it
+much faster since all iterations over the arrays now happen in <code>c</code> rather than pure <code>python</code>.</p><h2 id=the-tests>The Tests<a href=#the-tests class=hanchor arialabel=Anchor>&#8983;</a></h2><p>I&rsquo;m too lazy to grab the original post&rsquo;s source data so I&rsquo;m just going to generate my own. Here&rsquo;s my testbed:</p><pre><code class=language-python>import time
+import numpy as np
+factory_map = {'pure_python': LinearRegression,
+               'numpy_orig': npLinearRegression,
+               'numpy_correct': NpLinearRegression}
+times_by_method = {}
+Ns = [1000, 10000, 100000, 1000000, 10000000]
+for method, factory in factory_map.items():
+    print(method)
+    times = []
+    for N in Ns:
+        print(N)
+        x = np.linspace(0, 1, N)
+        y = x + np.random.rand(N)*0.1
+        start = time.time()
+        for i in range(10):
+            _ = factory(x, y).predict(x)
+        times.append(time.time() - start)
+    times_by_method[method] = times
+</code></pre><p>Pretty simple, for each implementation I&rsquo;m generating data of length 1000 all the way to 10 million (which was
+the number used for the original implementation). Note that the difference between the original two codes
+and a correct <code>numpy</code> implementation is so staggering that I have to put it on a log plot&hellip;</p><figure class=left><img src=/ox-hugo/numpy_vs_python_response_timing.png><figcaption class=center>Figure 1: Timing Plot</figcaption></figure><p>The absolute numbers here don&rsquo;t quite matter (and don&rsquo;t quite mean anything) and can&rsquo;t be directly compared
+with the Emmett&rsquo;s <code>Julia</code> implementation since the machine these ran on (in this case a <a href="https://colab.research.google.com/drive/13t7fWYxNSqUpgCfO-sUpE0z9A-s%5F9KT1?authuser=2#scrollTo=yTweiA7KynYL">Google colab notebook</a>)
+is not the same as the one used for previous tests. Nevertheless we can compare speedups.</p><p>For the 10,000,000 elements case, 10 total runs take 93 seconds in pure <code>python</code>. With the original <code>numpy</code>
+implementation this goes down to about 39 seconds which is consistent with Emmett&rsquo;s testing. A <em>correct</em> <code>numpy</code>
+implementation, however, gets you to a mere <strong>1.3 seconds</strong>&hellip; that&rsquo;s a roughly 72x speedup.</p><p>I unfortunately cannot also compare this to Emmett&rsquo;s <code>python</code> vs <code>Julia</code> comparison by comparing the speedups
+since the timing is not apples to apples. I can still try though it&rsquo;s not clear if the <code>Julia</code> <code>@time</code> magic he ran was the first
+run of the session or not (since that may or may not involve the JIT compiler) and how many runs of the function
+it did. It <em>might</em> have been a single run in which case the <code>Python</code> timing would be <code>1.22</code> seconds, implying
+<code>Julia</code>&rsquo;s speed up to be only about 4x. Having used <code>Julia</code> before I&rsquo;m reasonably certain that&rsquo;s wrong.</p><h2 id=so-what-s-the-takeaway-here>So what&rsquo;s the takeaway here?<a href=#so-what-s-the-takeaway-here class=hanchor arialabel=Anchor>&#8983;</a></h2><ol><li>We&rsquo;re likely stuck with <code>Python</code> when it comes to ML and data science (this is an assertion more so than a conclusion).</li><li>We should learn to use the various tools at our disposal <em>correctly</em>, and learning to grok <code>numpy</code> goes a long way.</li><li>When comparing the performance of two systems it&rsquo;s a good idea to make sure you understand at least some intricacies of both.</li></ol><p>When I started writing this I thought it may make sense to do a comparison with <code>Numba</code> as well, but this post is already gotten
+too long and I have to start my work day so I&rsquo;ll end it here. I would also like to invite Emmett to update his
+article to include my <code>numpy</code> implementation.</p><p>Cheers!</p></div></div><div class=pagination><div class=pagination__title><span class=pagination__title-h>Read other posts</span><hr></div><div class=pagination__buttons><span class="button next"><a href=/blog/videos/org-spacemacs/><span class=button__text>Org-Mode in Spacemacs</span>
+<span class=button__icon>→</span></a></span></div></div><script src=https://utteranc.es/client.js repo=safijari/safijari.github.io issue-term=og:title theme=photon-dark crossorigin=anonymous async></script></div></div><footer class=footer><div class=footer__inner><div class="copyright copyright--user"><span>Copyright Jariullah Safi 2020</span>
+<span>:: Theme made by <a href=https://twitter.com/panr>panr</a></span></div></div></footer><script src=/assets/main.js></script><script src=/assets/prism.js></script></div></body></html>
