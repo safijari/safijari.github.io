@@ -1,0 +1,21 @@
+<!-- <img src="ring.svg" style="position:fixed;left:-100*2px;top:-100px;width:600px;height:600px"/> -->
+<!-- <img src="ring.svg" style="position:fixed;left:0px;top:0px;width:100px;height:100px;transform:rotate(50deg);transform-origin:center;"/> -->
+<img src="ring.svg" style="position:fixed;left:150px;top:150px;width:1000px;height:1000px;"/>
+<img src="ring.svg" style="position:fixed;left:0px;top:0px;width:1300px;height:1300px;transform-origin:center;transform:rotate(135deg);"/>
+<svg height="1300px" width="1300px" style="position:fixed;left:0px;right:0px">
+  <line x1="650" y1="650" x2="0" y2="650" style="stroke:rgb(255,0,0);stroke-width:10;z-index:-100;transform:rotate(0deg);transform-origin:center">
+</svg>
+
+<script>
+    console.log("hey")
+    var d = new Date();
+
+    var utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+
+    var offset = 2
+    var nd = new Date(utc + (3600000*offset));
+
+  var angle = 360/24 * (nd.getHours() - 9 + nd.getMinutes()/60);
+  document.querySelector("svg").style.transform = "rotate(" + angle + "deg)"
+
+</script>
